@@ -57,10 +57,12 @@ def predict_style(new_description):
     predicted_topic = topic_distribution.argmax(axis=1)[0]
     return predicted_topic
 
-# Step 7: Function to recommend similar works based on the predicted style
-def recommend_similar_works(predicted_style, start=0, count=5):
-    # Filter artworks of the same style
-    same_style_works = data[data['Style'] == data['Style'].unique()[predicted_style]]
+# Step 7: Function to recommend similar works based on the predicted style and category
+def recommend_similar_works(predicted_style, user_category, start=0, count=5):
+    # Filter artworks of the same style and category
+    same_style_works = data[(data['Style'] == data['Style'].unique()[predicted_style]) &
+                            (data['Category'].str.lower() == user_category.lower())]
+    
     # Display a batch of 5 works
     recommended_works = same_style_works.iloc[start:start+count]
     
@@ -69,12 +71,13 @@ def recommend_similar_works(predicted_style, start=0, count=5):
         for index, row in recommended_works.iterrows():
             print(f"Title: {row['Title']}, Description: {row['Description'][:100]}...")
     else:
-        print("No more similar works available.")
+        print("No more similar works available in this category.")
 
-    # Return the total number of works available in this style
+    # Return the total number of works available in this style and category
     return len(same_style_works)
 
 # Step 8: Ask for user input
+user_category = input("Enter the category (e.g., Art, Sculpture, etc.): ")
 user_title = input("Enter the art title: ")
 user_description = input("Enter the art description: ")
 
@@ -84,12 +87,12 @@ predicted_style = predict_style(user_description)
 # Map the predicted topic back to actual art styles
 predicted_style_name = data['Style'].unique()[predicted_style]
 
-print(f"\nThe predicted style for '{user_title}' is: {predicted_style_name}")
+print(f"\nThe predicted Art Movement for '{user_title}' is: {predicted_style_name}")
 
 # Step 9: Recommend similar works initially and ask if the user wants more
 start_index = 0
 batch_size = 5
-total_recommendations = recommend_similar_works(predicted_style, start=start_index, count=batch_size)
+total_recommendations = recommend_similar_works(predicted_style, user_category, start=start_index, count=batch_size)
 
 # Loop to allow the user to load more recommendations
 while True:
@@ -97,7 +100,7 @@ while True:
         load_more = input("\nWould you like to load more similar works? (yes/no): ").strip().lower()
         if load_more == 'yes':
             start_index += batch_size
-            recommend_similar_works(predicted_style, start=start_index, count=batch_size)
+            recommend_similar_works(predicted_style, user_category, start=start_index, count=batch_size)
         else:
             print("No more works will be loaded.")
             break
