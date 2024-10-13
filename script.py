@@ -2,11 +2,13 @@ import pandas as pd
 import re
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 import nltk
+from nltk.stem import WordNetLemmatizer
 
 # Make sure you download required NLTK data
+nltk.download('wordnet')
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -14,6 +16,8 @@ nltk.download('stopwords')
 data = pd.read_csv('artStylesdataset.csv')  # Ensure correct file path
 
 # Step 2: Preprocess the descriptions and titles together
+lemmatizer = WordNetLemmatizer()
+
 def preprocess_text(text):
     # Remove punctuation and non-alphabet characters
     text = re.sub(r'[^\w\s]', '', text)
@@ -21,7 +25,8 @@ def preprocess_text(text):
     tokens = word_tokenize(text.lower())
     # Remove stopwords
     stop_words = set(stopwords.words('english'))
-    filtered_tokens = [word for word in tokens if word not in stop_words]
+    # Lemmatize and remove stopwords
+    filtered_tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
     return ' '.join(filtered_tokens)
 
 # Combine the 'Title' and 'Description' into one column and apply preprocessing
@@ -29,12 +34,12 @@ data['combined_text'] = data['Title'] + " " + data['Description']
 data['cleaned_combined_text'] = data['combined_text'].apply(preprocess_text)
 
 # Step 3: Vectorize the cleaned combined texts using CountVectorizer
-vectorizer = CountVectorizer(max_df=0.95, min_df=2, stop_words='english')
+vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words='english', ngram_range=(1, 2))  
 X = vectorizer.fit_transform(data['cleaned_combined_text'])
 
 # Step 4: Apply LDA
 n_topics = len(data['Style'].unique())  # Assuming the number of topics is the number of unique styles
-lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
+lda = LatentDirichletAllocation(n_components=n_topics, max_iter=30, learning_decay=0.7, random_state=42)
 lda.fit(X)
 
 # Step 5: Get the top words for each topic (optional, to interpret topics)
