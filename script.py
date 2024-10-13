@@ -11,9 +11,9 @@ nltk.download('punkt')
 nltk.download('stopwords')
 
 # Step 1: Load your dataset
-data = pd.read_csv('artdatasetsample.csv')
+data = pd.read_csv('artStylesdataset.csv')  # Ensure correct file path
 
-# Step 2: Preprocess the descriptions
+# Step 2: Preprocess the descriptions and titles together
 def preprocess_text(text):
     # Remove punctuation and non-alphabet characters
     text = re.sub(r'[^\w\s]', '', text)
@@ -24,12 +24,13 @@ def preprocess_text(text):
     filtered_tokens = [word for word in tokens if word not in stop_words]
     return ' '.join(filtered_tokens)
 
-# Apply preprocessing to each description
-data['cleaned_description'] = data['Description'].apply(preprocess_text)
+# Combine the 'Title' and 'Description' into one column and apply preprocessing
+data['combined_text'] = data['Title'] + " " + data['Description']
+data['cleaned_combined_text'] = data['combined_text'].apply(preprocess_text)
 
-# Step 3: Vectorize the cleaned descriptions using CountVectorizer
+# Step 3: Vectorize the cleaned combined texts using CountVectorizer
 vectorizer = CountVectorizer(max_df=0.95, min_df=2, stop_words='english')
-X = vectorizer.fit_transform(data['cleaned_description'])
+X = vectorizer.fit_transform(data['cleaned_combined_text'])
 
 # Step 4: Apply LDA
 n_topics = len(data['Style'].unique())  # Assuming the number of topics is the number of unique styles
@@ -56,7 +57,24 @@ def predict_style(new_description):
     predicted_topic = topic_distribution.argmax(axis=1)[0]
     return predicted_topic
 
-# Step 7: Ask for user input
+# Step 7: Function to recommend similar works based on the predicted style
+def recommend_similar_works(predicted_style, start=0, count=5):
+    # Filter artworks of the same style
+    same_style_works = data[data['Style'] == data['Style'].unique()[predicted_style]]
+    # Display a batch of 5 works
+    recommended_works = same_style_works.iloc[start:start+count]
+    
+    if not recommended_works.empty:
+        print("\nSimilar Works:")
+        for index, row in recommended_works.iterrows():
+            print(f"Title: {row['Title']}, Description: {row['Description'][:100]}...")
+    else:
+        print("No more similar works available.")
+
+    # Return the total number of works available in this style
+    return len(same_style_works)
+
+# Step 8: Ask for user input
 user_title = input("Enter the art title: ")
 user_description = input("Enter the art description: ")
 
@@ -66,4 +84,23 @@ predicted_style = predict_style(user_description)
 # Map the predicted topic back to actual art styles
 predicted_style_name = data['Style'].unique()[predicted_style]
 
-print(f"The predicted style for '{user_title}' is: {predicted_style_name}")
+print(f"\nThe predicted style for '{user_title}' is: {predicted_style_name}")
+
+# Step 9: Recommend similar works initially and ask if the user wants more
+start_index = 0
+batch_size = 5
+total_recommendations = recommend_similar_works(predicted_style, start=start_index, count=batch_size)
+
+# Loop to allow the user to load more recommendations
+while True:
+    if total_recommendations > start_index + batch_size:
+        load_more = input("\nWould you like to load more similar works? (yes/no): ").strip().lower()
+        if load_more == 'yes':
+            start_index += batch_size
+            recommend_similar_works(predicted_style, start=start_index, count=batch_size)
+        else:
+            print("No more works will be loaded.")
+            break
+    else:
+        print("All similar works have been displayed.")
+        break
